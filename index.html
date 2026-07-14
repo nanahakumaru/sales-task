@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080a0f">
+<title>忙しい営業マンのためのタスク管理アプリ</title>
+<style>
+  :root{
+    --bg:#080a0f;
+    --bg2:#0d1017;
+    --card:#12161f;
+    --card2:#171d29;
+    --line:#222b3a;
+    --text:#e6ecf5;
+    --muted:#7d8aa0;
+    --faint:#4e5a6e;
+    --accent:#2fe6e6;      /* neon cyan accent */
+    --accent-dim:#1a6e75;
+    --hi:#ff4d7d;          /* 重要度 高 (neon pink) */
+    --mid:#ffc24d;         /* 重要度 中 (neon amber) */
+    --lo:#4db8ff;          /* 重要度 低 (neon blue) */
+    --mine:#2fe6c4;        /* 自分ボール (neon teal) */
+    --theirs:#ff6ec7;      /* 相手ボール (neon magenta) */
+    --done:#2a3342;
+    --radius:14px;
+    --shadow:0 8px 28px rgba(0,0,0,.55);
+    font-size:16px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #0d1a22 0%, transparent 55%),
+      radial-gradient(900px 500px at -10% 10%, #101526 0%, transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+    padding:0 0 120px;
+    max-width:520px;
+    margin:0 auto;
+    position:relative;
+  }
+  input,textarea,select,button{font-family:inherit;font-size:16px;}
+
+  /* ---- header ---- */
+  header{
+    position:sticky;top:0;z-index:40;
+    background:rgba(14,14,17,.82);
+    backdrop-filter:saturate(140%) blur(14px);
+    -webkit-backdrop-filter:saturate(140%) blur(14px);
+    border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
+  }
+  /* bottom sheets: keep within the centered mobile column */
+  .sheet{max-width:520px;margin:0 auto;}
+  .brand{display:flex;align-items:flex-start;gap:12px;}
+  .brand h1{
+    margin:0;font-size:17px;font-weight:700;letter-spacing:.01em;line-height:1.35;flex:1;
+  }
+  .menu-btn{
+    align-self:flex-start;margin-top:1px;
+    width:38px;height:34px;border-radius:9px;
+    background:var(--card);border:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    cursor:pointer;flex:0 0 auto;
+  }
+  .menu-btn span{display:block;width:16px;height:2px;border-radius:2px;background:var(--muted);transition:.15s;}
+  .menu-btn:hover span{background:var(--accent);}
+  .searchwrap{position:relative;margin-top:12px;}
+  .searchwrap input{
+    width:100%;padding:11px 38px 11px 40px;
+    background:var(--bg2);border:1px solid var(--line);border-radius:11px;
+    color:var(--text);outline:none;
+  }
+  .searchwrap input::placeholder{color:var(--faint);}
+  .searchwrap input:focus{border-color:var(--accent-dim);box-shadow:0 0 0 1px rgba(47,230,230,.25),0 0 14px rgba(47,230,230,.12);}
+  .searchwrap .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:15px;}
+  .searchwrap .clr{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border:none;background:transparent;color:var(--muted);
+    font-size:17px;cursor:pointer;display:none;border-radius:50%;
+  }
+  .searchwrap .clr.show{display:block;}
+
+  /* ---- filter chips ---- */
+  .chips{
+    display:flex;gap:8px;overflow-x:auto;padding:12px 18px 4px;
+    scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;padding:7px 14px;border-radius:999px;
+    background:var(--card);border:1px solid var(--line);color:var(--muted);
+    font-size:13px;white-space:nowrap;cursor:pointer;transition:.15s;
+  }
+  .chip.active{
+    background:linear-gradient(180deg,#0e2a2c,#0a2224);
+    border-color:var(--accent-dim);color:var(--accent);font-weight:600;
+    box-shadow:0 0 12px rgba(47,230,230,.22);
+  }
+
+  /* ---- list ---- */
+  main{padding:8px 14px 0;}
+  .count{font-size:12px;color:var(--faint);padding:8px 6px 4px;letter-spacing:.04em;}
+
+  .task{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left-width:3px;
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    margin-bottom:10px;overflow:hidden;
+    transition:.15s;
+  }
+  /* priority tint on the whole card */
+  .task.p-h{
+    background:linear-gradient(90deg, rgba(255,77,125,.14), rgba(255,77,125,.04) 40%, var(--card) 75%);
+    border-left-color:var(--hi);
+  }
+  .task.p-m{
+    background:linear-gradient(90deg, rgba(255,194,77,.13), rgba(255,194,77,.035) 40%, var(--card) 75%);
+    border-left-color:var(--mid);
+  }
+  .task.p-l{
+    background:linear-gradient(90deg, rgba(77,184,255,.13), rgba(77,184,255,.035) 40%, var(--card) 75%);
+    border-left-color:var(--lo);
+  }
+  .task.dragging{opacity:.4;}
+  .task.done{background:#141419;border-color:#20202a;border-left-color:#20202a;}
+  .task-main{display:flex;align-items:center;gap:12px;padding:14px 14px;}
+  .drag{
+    color:var(--faint);cursor:grab;font-size:17px;flex:0 0 auto;
+    touch-action:none;user-select:none;padding:2px;
+  }
+  .task.done .drag{visibility:hidden;}
+  .check{
+    flex:0 0 auto;width:26px;height:26px;border-radius:50%;
+    border:2px solid var(--faint);background:transparent;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  .check:hover{border-color:var(--accent);}
+  .task.done .check{background:transparent;border-color:var(--faint);}
+  .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;opacity:0;transition:.15s;}
+  .task.done .check svg{opacity:1;stroke:var(--muted);}
+
+  .task-body{flex:1;min-width:0;cursor:pointer;}
+  .task-title{font-size:15.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .task.done .task-title{color:var(--muted);}
+  .task-meta{display:flex;align-items:center;gap:7px;margin-top:5px;flex-wrap:wrap;}
+
+
+  .tag{
+    font-size:11px;padding:2.5px 8px;border-radius:6px;letter-spacing:.02em;
+    background:var(--card2);color:var(--muted);border:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .tag.cat{color:var(--accent);border-color:var(--accent-dim);background:#0a2224;}
+  .tag.prio-tag{font-weight:700;letter-spacing:.02em;}
+  .tag.prio-tag.h{color:var(--hi);border-color:#7a2547;background:#2a0f1a;}
+  .tag.prio-tag.m{color:var(--mid);border-color:#6e5620;background:#2a2210;}
+  .tag.prio-tag.l{color:var(--lo);border-color:#255070;background:#0f1f2c;}
+  .tag.ball{display:inline-flex;align-items:center;gap:4px;}
+  .tag.ball .dot{width:7px;height:7px;border-radius:50%;}
+  .tag.mine .dot{background:var(--mine);} .tag.mine{color:var(--mine);border-color:#155248;background:#0a201c;}
+  .tag.theirs .dot{background:var(--theirs);} .tag.theirs{color:var(--theirs);border-color:#5a234a;background:#22101d;}
+  .tag.person{color:#b9b9c8;}
+
+  .divider{
+    display:flex;align-items:center;gap:10px;color:var(--faint);
+    font-size:12px;letter-spacing:.06em;margin:22px 4px 12px;
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .empty{text-align:center;color:var(--faint);padding:60px 20px;font-size:14px;}
+  .empty .big{font-size:34px;margin-bottom:12px;opacity:.5;}
+
+  /* ---- detail / form panel ---- */
+  .overlay{
+    position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);
+    backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.2s;
+  }
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:61;
+    background:var(--bg2);border-top:1px solid var(--line);
+    border-radius:20px 20px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.55);
+    transform:translateY(100%);transition:transform .26s cubic-bezier(.32,.72,0,1);
+    max-height:92vh;display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .sheet.show{transform:translateY(0);}
+  .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px;flex:0 0 auto;}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:6px 18px 12px;flex:0 0 auto;}
+  .sheet-head h3{margin:0;font-size:16px;font-weight:700;}
+  .sheet-head .x{background:transparent;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:4px;}
+  .sheet-scroll{overflow-y:auto;padding:0 18px 18px;-webkit-overflow-scrolling:touch;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px;letter-spacing:.04em;}
+  .field input[type=text],.field textarea,.field select{
+    width:100%;padding:12px 13px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;color:var(--text);outline:none;
+  }
+  .field textarea{min-height:150px;resize:vertical;line-height:1.6;}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent-dim);}
+
+  .seg{display:flex;gap:8px;}
+  .seg button{
+    flex:1;padding:11px 6px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);color:var(--muted);cursor:pointer;font-size:13.5px;transition:.15s;
+  }
+  .seg button.on{color:var(--text);font-weight:600;}
+  .seg button.on.h{background:#2a0f1a;border-color:#7a2547;color:#ff7da3;}
+  .seg button.on.m{background:#2a2210;border-color:#6e5620;color:#ffd27a;}
+  .seg button.on.l{background:#0f1f2c;border-color:#255070;color:#7ecbff;}
+  .seg button.on.mine{background:#0a201c;border-color:#155248;color:var(--mine);}
+  .seg button.on.theirs{background:#22101d;border-color:#5a234a;color:var(--theirs);}
+
+  .catrow{display:flex;gap:8px;align-items:stretch;}
+  .catrow select{flex:1;}
+  .catrow .addcat{
+    flex:0 0 auto;width:48px;border-radius:10px;border:1px solid var(--accent-dim);
+    background:#0a2224;color:var(--accent);font-size:22px;cursor:pointer;
+  }
+
+  .btn-primary{
+    width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+    background:linear-gradient(180deg,#3ff0f0,#1fbfc9);color:#04181a;font-weight:700;font-size:15px;
+    letter-spacing:.03em;box-shadow:0 0 18px rgba(47,230,230,.28);
+  }
+  .btn-primary:active{opacity:.9;}
+  .btn-ghost{
+    width:100%;padding:12px;margin-top:10px;border-radius:12px;cursor:pointer;
+    background:transparent;border:1px solid var(--line);color:var(--muted);font-size:14px;
+  }
+  .btn-danger{color:#e07070;border-color:#4a2a2a;}
+
+  /* detail view */
+  .detail-title{font-size:20px;font-weight:700;margin:0 0 14px;line-height:1.4;}
+  .detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+  .detail-note{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px;color:#cdcdd8;white-space:pre-wrap;word-break:break-word;
+    min-height:60px;font-size:14.5px;
+  }
+  .detail-note.empty-note{color:var(--faint);}
+  .detail-actions{display:flex;gap:10px;margin-top:20px;}
+  .detail-actions button{
+    flex:1;padding:12px;border-radius:11px;cursor:pointer;font-size:14px;border:1px solid var(--line);
+    background:var(--card);color:var(--text);
+  }
+  .detail-actions .del{color:#e07070;border-color:#4a2a2a;background:#1c1416;}
+
+  /* help guide */
+  .help-block{margin-bottom:20px;}
+  .help-h{
+    display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;
+    color:var(--text);margin-bottom:6px;
+  }
+  .help-ico{
+    flex:0 0 auto;width:26px;height:26px;border-radius:7px;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:#0a2224;border:1px solid var(--accent-dim);color:var(--accent);
+    font-size:14px;
+  }
+  .help-ico.dot-mine{background:var(--mine);border-color:var(--mine);box-shadow:0 0 8px rgba(47,230,196,.4);}
+  .help-block p{
+    margin:0;color:#c3ccdb;font-size:14px;line-height:1.75;padding-left:35px;
+  }
+  .help-block p b{color:var(--text);}
+  .help-note{
+    margin-top:6px;padding:12px 14px;border-radius:10px;
+    background:var(--card);border:1px solid var(--line);
+    color:var(--muted);font-size:12.5px;line-height:1.6;
+  }
+
+  /* ---- FAB ---- */
+  .fab{
+    position:fixed;right:max(20px, calc(50vw - 260px + 20px));bottom:calc(env(safe-area-inset-bottom) + 22px);z-index:50;
+    width:60px;height:60px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(160deg,#3ff0f0,#17a9b8);
+    color:#04181a;font-size:32px;font-weight:300;line-height:1;
+    box-shadow:0 10px 26px rgba(0,0,0,.55),0 0 22px rgba(47,230,230,.4),0 0 0 1px rgba(47,230,230,.35);
+    display:flex;align-items:center;justify-content:center;padding-bottom:3px;
+  }
+  .fab:active{transform:scale(.94);}
+
+  /* hamburger dropdown */
+  .menu-pop{
+    position:absolute;top:calc(env(safe-area-inset-top) + 52px);right:18px;z-index:45;
+    background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);padding:6px;min-width:190px;
+    display:none;flex-direction:column;gap:2px;
+  }
+  .menu-pop.show{display:flex;}
+  .menu-pop button{
+    text-align:left;padding:11px 13px;border-radius:8px;border:none;
+    background:transparent;color:var(--text);cursor:pointer;font-size:14px;
+  }
+  .menu-pop button:hover{background:var(--card2);color:var(--accent);}
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);
+    transform:translateX(-50%) translateY(20px);z-index:80;
+    background:#2a2a34;color:var(--text);padding:10px 18px;border-radius:10px;
+    font-size:13.5px;border:1px solid var(--line);box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:.25s;white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>忙しい営業マンのためのタスク管理アプリ</h1>
+    <button class="menu-btn" id="menuBtn" aria-label="メニュー">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="searchwrap">
+    <span class="ico">⌕</span>
+    <input id="search" type="text" placeholder="件名・内容・担当者で検索（完了も対象）" autocomplete="off">
+    <button class="clr" id="searchClr" aria-label="クリア">✕</button>
+  </div>
+  <div class="menu-pop" id="menuPop">
+    <button id="helpBtn">❓ 使い方</button>
+    <button id="exportBtn">↧ 書き出し（バックアップ）</button>
+    <button id="importBtn">↥ 読み込み</button>
+  </div>
+</header>
+
+<div class="chips" id="chips"></div>
+
+<main>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+</main>
+
+<button class="fab" id="fab" aria-label="タスクを追加">＋</button>
+
+<!-- form sheet -->
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="formSheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <h3 id="formTitle">タスクを追加</h3>
+    <button class="x" id="formClose">×</button>
+  </div>
+  <div class="sheet-scroll">
+    <div class="field">
+      <label>大分類</label>
+      <div class="catrow">
+        <select id="fCat"></select>
+        <button class="addcat" id="fAddCat" title="大分類を追加">＋</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>件名</label>
+      <input type="text" id="fTitle" placeholder="見積もり作成 など">
+    </div>
+    <div class="field">
+      <label>内容・詳細メモ</label>
+      <textarea id="fNote" placeholder="どういう案件か、経緯や次アクションなど"></textarea>
+    </div>
+    <div class="field">
+      <label>重要度</label>
+      <div class="seg" id="fPrio">
+        <button data-v="h">高</button>
+        <button data-v="m">中</button>
+        <button data-v="l">低</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>ボール（対応待ち）</label>
+      <div class="seg" id="fBall">
+        <button data-v="mine">自分ボール</button>
+        <button data-v="theirs">相手ボール</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>担当者名</label>
+      <input type="text" id="fPerson" placeholder="担当者名（任意）">
+    </div>
+    <button class="btn-primary" id="fSave">保存する</button>
+    <button class="btn-ghost btn-danger" id="fDelete" style="display:none">このタスクを削除</button>
+  </div>
+</div>
+
+<!-- detail sheet -->
+<div class="sheet" id="detailSheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <h3>詳細</h3>
+    <button class="x" id="detailClose">×</button>
+  </div>
+  <div class="sheet-scroll" id="detailBody"></div>
+</div>
+
+<!-- help sheet -->
+<div class="sheet" id="helpSheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <h3>使い方</h3>
+    <button class="x" id="helpClose">×</button>
+  </div>
+  <div class="sheet-scroll">
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico">＋</span>タスクを追加する</div>
+      <p>右下の「＋」ボタンから追加します。大分類・件名・内容メモ・重要度・ボール・担当者を入力して保存。大分類は「＋」ボタンで自分で増やせます。</p>
+    </div>
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico">◔</span>重要度と並び順</div>
+      <p>重要度は高・中・低の3段階。カード全体にうっすら色が付きます（高＝ピンク／中＝アンバー／低＝ブルー）。一覧は重要度の高い順に自動で上から並びます。同じ重要度の中は、左の <b>⣿</b> をドラッグして順番を入れ替えられます。</p>
+    </div>
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico dot-mine"></span>ボール（対応待ち）</div>
+      <p>いま自分が動く番なら「自分ボール」、相手の返答待ちなら「相手ボール」を選びます。自分＝ティール、相手＝マゼンタのタグで一目で分かります。</p>
+    </div>
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico">◯</span>完了にする</div>
+      <p>左の丸をタップすると完了になり、「完了」の下に終わった順で積まれます。消えずに残るので、あとから見返せます。もう一度タップで未完了に戻せます。</p>
+    </div>
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico">⌕</span>探す</div>
+      <p>上の検索窓に入力すると、件名・内容・担当者・大分類から探せます。完了済みのタスクも検索対象です。上のタグで大分類ごとに絞り込むこともできます。</p>
+    </div>
+    <div class="help-block">
+      <div class="help-h"><span class="help-ico">☰</span>バックアップ・引き継ぎ</div>
+      <p>データはこのスマホの中だけに保存されます。機種変更や別の端末で使うときは、このメニューの「書き出し」でファイルを保存し、移行先で「読み込み」すれば中身を引き継げます。</p>
+    </div>
+    <div class="help-note">※ データはこの端末のブラウザ内にのみ保存され、外部には送信されません。1台での利用を想定しています。</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" accept="application/json" style="display:none">
+
+<script>
+const DEFAULT_CATS = ["SR ア2","SR セツ","L1.2","西地区","太陽光","DOWAメタニクス","DOWAメタル","スズキ部品製造","YSK","AIK","寿産業","進和","日進機構"];
+const PRIO_LABEL = {h:"高",m:"中",l:"低"};
+const PRIO_RANK  = {h:0,m:1,l:2};
+const BALL_LABEL = {mine:"自分ボール",theirs:"相手ボール"};
+
+let state = load();
+let editingId = null;
+let filterCat = "all";
+let searchQ = "";
+
+function load(){
+  try{
+    const raw = localStorage.getItem("salesTasks_v1");
+    if(raw){ const d = JSON.parse(raw);
+      if(!d.cats) d.cats = [...DEFAULT_CATS];
+      if(!d.tasks) d.tasks = [];
+      return d;
+    }
+  }catch(e){}
+  return {cats:[...DEFAULT_CATS], tasks:[]};
+}
+function save(){ localStorage.setItem("salesTasks_v1", JSON.stringify(state)); }
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* ---------- rendering ---------- */
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function matches(t){
+  if(filterCat!=="all" && t.cat!==filterCat) return false;
+  if(searchQ){
+    const q=searchQ.toLowerCase();
+    const hay=(t.title+" "+t.note+" "+(t.person||"")+" "+t.cat).toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderChips(){
+  const c=document.getElementById("chips");
+  const cats=["all",...state.cats];
+  c.innerHTML=cats.map(cat=>{
+    const label=cat==="all"?"すべて":cat;
+    return `<div class="chip ${filterCat===cat?'active':''}" data-cat="${esc(cat)}">${esc(label)}</div>`;
+  }).join("");
+  c.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{filterCat=ch.dataset.cat;render();});
+}
+
+function render(){
+  renderChips();
+  const list=document.getElementById("list");
+  const all=state.tasks.filter(matches);
+  const active=all.filter(t=>!t.done).sort((a,b)=>{
+    const p=PRIO_RANK[a.prio]-PRIO_RANK[b.prio];
+    if(p!==0) return p;
+    return a.order-b.order;
+  });
+  const done=all.filter(t=>t.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+
+  document.getElementById("count").textContent =
+    `未完了 ${active.length}件` + (done.length?` ・ 完了 ${done.length}件`:"");
+
+  let html="";
+  if(active.length===0 && done.length===0){
+    html=`<div class="empty"><div class="big">◇</div>${searchQ||filterCat!=="all"?"該当するタスクはありません":"右下の＋からタスクを追加"}</div>`;
+  }else{
+    html+=active.map(t=>taskHtml(t)).join("");
+    if(done.length){
+      html+=`<div class="divider">完了（${done.length}）</div>`;
+      html+=done.map(t=>taskHtml(t)).join("");
+    }
+  }
+  list.innerHTML=html;
+  bindTasks();
+}
+
+function taskHtml(t){
+  const meta=[];
+  if(!t.done){
+    meta.push(`<span class="tag prio-tag ${t.prio}">${PRIO_LABEL[t.prio]}</span>`);
+  }
+  meta.push(`<span class="tag cat">${esc(t.cat)}</span>`);
+  if(!t.done){
+    if(t.ball) meta.push(`<span class="tag ball ${t.ball}"><span class="dot"></span>${BALL_LABEL[t.ball]}</span>`);
+  }
+  if(t.person) meta.push(`<span class="tag person">${esc(t.person)}</span>`);
+  return `<div class="task ${t.done?'done':'p-'+t.prio}" data-id="${t.id}" draggable="${t.done?'false':'true'}">
+    <div class="task-main">
+      ${t.done?'':`<span class="drag" data-drag>⣿</span>`}
+      <button class="check" data-check aria-label="完了切替">
+        <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
+      </button>
+      <div class="task-body" data-open>
+        <div class="task-title">${esc(t.title)}</div>
+        <div class="task-meta">${meta.join("")}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindTasks(){
+  document.querySelectorAll(".task").forEach(el=>{
+    const id=el.dataset.id;
+    el.querySelector("[data-check]").onclick=(e)=>{e.stopPropagation();toggleDone(id);};
+    el.querySelector("[data-open]").onclick=()=>openDetail(id);
+  });
+  setupDrag();
+}
+
+/* ---------- actions ---------- */
+function toggleDone(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  t.done=!t.done;
+  t.doneAt=t.done?Date.now():null;
+  save();render();
+  toast(t.done?"完了にしました":"未完了に戻しました");
+}
+
+function openForm(id){
+  editingId=id||null;
+  const t=id?state.tasks.find(x=>x.id===id):null;
+  document.getElementById("formTitle").textContent=id?"タスクを編集":"タスクを追加";
+  buildCatSelect(t?t.cat:state.cats[0]);
+  document.getElementById("fTitle").value=t?t.title:"";
+  document.getElementById("fNote").value=t?t.note:"";
+  setSeg("fPrio", t?t.prio:"m");
+  setSeg("fBall", t?t.ball:"mine");
+  document.getElementById("fPerson").value=t?(t.person||""):"";
+  document.getElementById("fDelete").style.display=id?"block":"none";
+  showSheet("formSheet");
+}
+
+function buildCatSelect(sel){
+  const s=document.getElementById("fCat");
+  s.innerHTML=state.cats.map(c=>`<option value="${esc(c)}" ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
+}
+
+function setSeg(groupId,val){
+  const g=document.getElementById(groupId);
+  g.querySelectorAll("button").forEach(b=>{
+    const on=b.dataset.v===val;
+    b.classList.toggle("on",on);
+    if(on) b.classList.add(b.dataset.v); 
+  });
+  g.dataset.val=val;
+}
+document.querySelectorAll(".seg").forEach(g=>{
+  g.querySelectorAll("button").forEach(b=>{
+    b.onclick=()=>{
+      g.querySelectorAll("button").forEach(x=>{x.className="";});
+      b.classList.add("on",b.dataset.v);
+      g.dataset.val=b.dataset.v;
+    };
+  });
+});
+
+function saveForm(){
+  const title=document.getElementById("fTitle").value.trim();
+  if(!title){toast("件名を入力してください");return;}
+  const cat=document.getElementById("fCat").value;
+  const note=document.getElementById("fNote").value.trim();
+  const prio=document.getElementById("fPrio").dataset.val||"m";
+  const ball=document.getElementById("fBall").dataset.val||"mine";
+  const person=document.getElementById("fPerson").value.trim();
+
+  if(editingId){
+    const t=state.tasks.find(x=>x.id===editingId);
+    Object.assign(t,{cat,title,note,prio,ball,person});
+    toast("更新しました");
+  }else{
+    const minOrder=Math.min(0,...state.tasks.map(t=>t.order||0));
+    state.tasks.push({id:uid(),cat,title,note,prio,ball,person,done:false,doneAt:null,order:minOrder-1});
+    toast("追加しました");
+  }
+  save();closeSheets();render();
+}
+
+function deleteTask(){
+  if(!editingId) return;
+  if(!confirm("このタスクを削除しますか？")) return;
+  state.tasks=state.tasks.filter(t=>t.id!==editingId);
+  save();closeSheets();render();toast("削除しました");
+}
+
+function addCategory(){
+  const name=prompt("追加する大分類名を入力");
+  if(!name) return;
+  const n=name.trim();
+  if(!n) return;
+  if(state.cats.includes(n)){toast("すでにあります");buildCatSelect(n);return;}
+  state.cats.push(n);save();buildCatSelect(n);toast("大分類を追加しました");
+}
+
+/* ---------- detail ---------- */
+function openDetail(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  const tags=[`<span class="tag cat">${esc(t.cat)}</span>`,
+    `<span class="tag ${t.prio==='h'?'':''}" style="color:${t.prio==='h'?'#ff7da3':t.prio==='m'?'#ffd27a':'#7ecbff'}">重要度 ${PRIO_LABEL[t.prio]}</span>`];
+  if(t.ball) tags.push(`<span class="tag ball ${t.ball}"><span class="dot"></span>${BALL_LABEL[t.ball]}</span>`);
+  if(t.person) tags.push(`<span class="tag person">担当 ${esc(t.person)}</span>`);
+  if(t.done) tags.push(`<span class="tag" style="color:var(--mine)">完了済み</span>`);
+
+  document.getElementById("detailBody").innerHTML=`
+    <div class="detail-title">${esc(t.title)}</div>
+    <div class="detail-tags">${tags.join("")}</div>
+    <div class="detail-note ${t.note?'':'empty-note'}">${t.note?esc(t.note):"メモはありません"}</div>
+    <div class="detail-actions">
+      <button data-act="edit">編集する</button>
+      <button class="del" data-act="del">削除</button>
+    </div>`;
+  const body=document.getElementById("detailBody");
+  body.querySelector('[data-act="edit"]').onclick=()=>{closeSheets();setTimeout(()=>openForm(id),180);};
+  body.querySelector('[data-act="del"]').onclick=()=>{
+    if(confirm("このタスクを削除しますか？")){
+      state.tasks=state.tasks.filter(x=>x.id!==id);
+      save();closeSheets();render();toast("削除しました");
+    }
+  };
+  showSheet("detailSheet");
+}
+
+/* ---------- drag reorder (touch + mouse) ---------- */
+let dragEl=null;
+function setupDrag(){
+  const list=document.getElementById("list");
+  list.querySelectorAll('.task[draggable="true"]').forEach(el=>{
+    el.addEventListener("dragstart",e=>{dragEl=el;el.classList.add("dragging");});
+    el.addEventListener("dragend",e=>{el.classList.remove("dragging");dragEl=null;persistOrder();});
+    el.addEventListener("dragover",e=>{
+      e.preventDefault();
+      if(!dragEl||dragEl===el||el.classList.contains("done"))return;
+      const r=el.getBoundingClientRect();
+      const after=(e.clientY-r.top)/r.height>0.5;
+      list.insertBefore(dragEl, after?el.nextSibling:el);
+    });
+  });
+  // touch drag via handle
+  list.querySelectorAll("[data-drag]").forEach(h=>{
+    h.addEventListener("touchstart",touchStart,{passive:false});
+  });
+}
+let touchDrag=null;
+function touchStart(e){
+  e.preventDefault();
+  const el=e.target.closest(".task");
+  if(!el)return;
+  touchDrag=el;el.classList.add("dragging");
+  document.addEventListener("touchmove",touchMove,{passive:false});
+  document.addEventListener("touchend",touchEnd);
+}
+function touchMove(e){
+  e.preventDefault();
+  const y=e.touches[0].clientY;
+  const list=document.getElementById("list");
+  const items=[...list.querySelectorAll('.task[draggable="true"]')].filter(x=>x!==touchDrag);
+  let placed=false;
+  for(const it of items){
+    const r=it.getBoundingClientRect();
+    if(y < r.top+r.height/2){ list.insertBefore(touchDrag,it); placed=true; break; }
+  }
+  if(!placed){
+    const firstDone=list.querySelector(".divider");
+    if(firstDone) list.insertBefore(touchDrag,firstDone);
+    else list.appendChild(touchDrag);
+  }
+}
+function touchEnd(){
+  if(touchDrag) touchDrag.classList.remove("dragging");
+  touchDrag=null;
+  document.removeEventListener("touchmove",touchMove);
+  document.removeEventListener("touchend",touchEnd);
+  persistOrder();
+}
+function persistOrder(){
+  const list=document.getElementById("list");
+  const ids=[...list.querySelectorAll('.task[draggable="true"]')].map(el=>el.dataset.id);
+  ids.forEach((id,i)=>{
+    const t=state.tasks.find(x=>x.id===id);
+    if(t) t.order=i;
+  });
+  // note: reordering only persists within same priority group visually;
+  // priority still governs top-level sort on next render.
+  save();
+}
+
+/* ---------- sheets ---------- */
+function showSheet(id){
+  document.getElementById("overlay").classList.add("show");
+  document.getElementById(id).classList.add("show");
+  document.body.style.overflow="hidden";
+}
+function closeSheets(){
+  document.getElementById("overlay").classList.remove("show");
+  document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("show"));
+  document.body.style.overflow="";
+}
+
+/* ---------- export / import ---------- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const d=new Date();
+  const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+  a.href=url;a.download=`tasks_backup_${stamp}.json`;a.click();
+  URL.revokeObjectURL(url);
+  toast("書き出しました");
+}
+function importData(file){
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const d=JSON.parse(reader.result);
+      if(!d.tasks||!Array.isArray(d.tasks)) throw 0;
+      if(!confirm("現在のデータを、読み込んだ内容で置き換えます。よろしいですか？")) return;
+      state=d;
+      if(!state.cats) state.cats=[...DEFAULT_CATS];
+      save();render();toast("読み込みました");
+    }catch(e){toast("ファイルを読み込めませんでした");}
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- toast ---------- */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* ---------- wire up ---------- */
+document.getElementById("fab").onclick=()=>openForm(null);
+document.getElementById("formClose").onclick=closeSheets;
+document.getElementById("detailClose").onclick=closeSheets;
+document.getElementById("overlay").onclick=closeSheets;
+document.getElementById("fSave").onclick=saveForm;
+document.getElementById("fDelete").onclick=deleteTask;
+document.getElementById("fAddCat").onclick=addCategory;
+
+const menuBtn=document.getElementById("menuBtn");
+const menuPop=document.getElementById("menuPop");
+menuBtn.onclick=(e)=>{e.stopPropagation();menuPop.classList.toggle("show");};
+document.addEventListener("click",(e)=>{
+  if(menuPop.classList.contains("show") && !menuPop.contains(e.target) && e.target!==menuBtn){
+    menuPop.classList.remove("show");
+  }
+});
+
+document.getElementById("helpBtn").onclick=()=>{menuPop.classList.remove("show");showSheet("helpSheet");};
+document.getElementById("helpClose").onclick=closeSheets;
+document.getElementById("exportBtn").onclick=()=>{menuPop.classList.remove("show");exportData();};
+document.getElementById("importBtn").onclick=()=>{menuPop.classList.remove("show");document.getElementById("fileInput").click();};
+document.getElementById("fileInput").onchange=(e)=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value="";};
+
+const searchEl=document.getElementById("search");
+const searchClr=document.getElementById("searchClr");
+searchEl.oninput=()=>{
+  searchQ=searchEl.value.trim();
+  searchClr.classList.toggle("show",!!searchQ);
+  render();
+};
+searchClr.onclick=()=>{searchEl.value="";searchQ="";searchClr.classList.remove("show");render();};
+
+render();
+</script>
+</body>
+</html>
