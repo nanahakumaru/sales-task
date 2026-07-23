@@ -155,6 +155,7 @@
   .task-title{font-size:15.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .task.done .task-title{color:var(--muted);}
   .task-meta{display:flex;align-items:center;gap:7px;margin-top:5px;flex-wrap:wrap;}
+  .task-meta .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;}
 
 
   .tag{
@@ -163,10 +164,6 @@
     white-space:nowrap;
   }
   .tag.cat{color:var(--accent);border-color:var(--accent-dim);background:#0a2224;}
-  .tag.prio-tag{font-weight:700;letter-spacing:.02em;}
-  .tag.prio-tag.h{color:var(--hi);border-color:#7a2547;background:#2a0f1a;}
-  .tag.prio-tag.m{color:var(--mid);border-color:#6e5620;background:#2a2210;}
-  .tag.prio-tag.l{color:var(--lo);border-color:#255070;background:#0f1f2c;}
   .tag.ball{display:inline-flex;align-items:center;gap:4px;}
   .tag.ball .dot{width:7px;height:7px;border-radius:50%;}
   .tag.mine .dot{background:var(--mine);} .tag.mine{color:var(--mine);border-color:#155248;background:#0a201c;}
@@ -284,6 +281,7 @@
   /* detail view */
   .detail-title{font-size:20px;font-weight:700;margin:0 0 14px;line-height:1.4;}
   .detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+  .detail-tags .tag{white-space:normal;max-width:100%;word-break:break-word;overflow-wrap:anywhere;}
   .detail-note{
     background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:14px;color:#cdcdd8;white-space:pre-wrap;word-break:break-word;
@@ -580,9 +578,6 @@ function render(){
 
 function taskHtml(t){
   const meta=[];
-  if(!t.done){
-    meta.push(`<span class="tag prio-tag ${t.prio}">${PRIO_LABEL[t.prio]}</span>`);
-  }
   meta.push(`<span class="tag cat">${esc(t.cat)}</span>`);
   if(!t.done){
     if(t.ball) meta.push(`<span class="tag ball ${t.ball}"><span class="dot"></span>${BALL_LABEL[t.ball]}</span>`);
